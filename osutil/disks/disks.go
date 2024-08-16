@@ -30,6 +30,9 @@ type Options struct {
 	// IsDecryptedDevice indicates that the mountpoint is referring to a
 	// decrypted device.
 	IsDecryptedDevice bool
+	// IsVerityDevice indicates that the mountpoint is referring to a
+	// device mounted with verity data.
+	IsVerityDevice bool
 }
 
 // Disk is a single physical disk device that contains partitions.

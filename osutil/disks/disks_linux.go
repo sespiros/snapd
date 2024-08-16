@@ -678,7 +678,7 @@ func diskFromMountPointImpl(mountpoint string, opts *Options) (*disk, error) {
 		return nil, err
 	}
 
-	if opts != nil && opts.IsDecryptedDevice {
+	if opts != nil && (opts.IsDecryptedDevice || opts.IsVerityDevice) {
 		props, err = parentPartitionPropsForOptions(props)
 		if err != nil {
 			return nil, fmt.Errorf("cannot process properties of %v parent device: %v", source, err)

@@ -2024,6 +2024,57 @@ func (s *diskSuite) TestPartitionUUIDFromMountPointVerity(c *C) {
 	c.Assert(uuid, Equals, "foo-uuid")
 }
 
+func (s *diskSuite) TestDiskFromMountPointVerity(c *C) {
+	restore := osutil.MockMountInfo(`130 30 242:1 / /run/mnt/point rw,relatime shared:54 - ext4 /dev/mapper/something rw
+`)
+	defer restore()
+	restore = disks.MockUdevPropertiesForDevice(func(typeOpt, dev string) (map[string]string, error) {
+		c.Assert(typeOpt, Equals, "--name")
+		switch dev {
+		case "/dev/mapper/something":
+			return map[string]string{
+				"DEVTYPE": "disk",
+				"MAJOR":   "242",
+				"MINOR":   "1",
+			}, nil
+		case "/dev/block/259:8":
+			return map[string]string{
+				"ID_PART_ENTRY_DISK": "42:0",
+			}, nil
+		case "/dev/block/42:0":
+			return map[string]string{
+				"DEVTYPE":            "disk",
+				"DEVNAME":            "foo",
+				"DEVPATH":            "/devices/foo",
+				"ID_PART_TABLE_UUID": "foo-uuid",
+				"ID_PART_TABLE_TYPE": "DOS",
+			}, nil
+		default:
+			c.Errorf("unexpected udev device properties requested: %s", dev)
+			return nil, fmt.Errorf("unexpected udev device: %s", dev)
+		}
+	})
+	defer restore()
+
+	restore = disks.MockDmIoctlTableStatus(func(major uint32, minor uint32) ([]osutil.TargetInfo, error) {
+		return []osutil.TargetInfo{
+			{
+				TargetType: "verity",
+				Params:     "1 259:8 259:9 4096 4096 12345 1 sha256 hash salt",
+			},
+		}, nil
+	})
+	defer restore()
+
+	opts := &disks.Options{IsVerityDevice: true}
+
+	d, err := disks.DiskFromMountPoint("/run/mnt/point", opts)
+	c.Assert(err, IsNil)
+	c.Assert(d.Dev(), Equals, "42:0")
+	c.Assert(d.HasPartitions(), Equals, true)
+	c.Assert(d.Schema(), Equals, "dos")
+}
+
 func (s *diskSuite) TestPartitionUUID(c *C) {
 	restore := disks.MockUdevPropertiesForDevice(func(typeOpt, dev string) (map[string]string, error) {
 		c.Assert(typeOpt, Equals, "--name")
